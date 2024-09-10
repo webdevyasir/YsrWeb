@@ -1,44 +1,64 @@
-// data.js
+// adData.js
 
-// Example data object
-const exampleData = {
-  user: {
-    id: 1,
-    name: "John Doe",
-    email: "john.doe@example.com",
-    profile: {
-      age: 30,
-      city: "New York"
-    }
-  },
-  posts: [
-    {
-      id: 101,
-      title: "Introduction to JavaScript",
-      content: "JavaScript is a versatile programming language used for web development.",
-      published: true
-    },
-    {
-      id: 102,
-      title: "Understanding CDN",
-      content: "A Content Delivery Network (CDN) helps in distributing content efficiently.",
-      published: false
-    }
-  ],
-  settings: {
-    theme: "dark",
-    notificationsEnabled: true
-  }
+// Firebase configuration
+var firebaseConfig = {
+    apiKey: "AIzaSyAAucggVXL3-hWWx6eoLjuVp9XRbOhTzqY",
+    authDomain: "ysrwebads.firebaseapp.com",
+    databaseURL: "https://ysrwebads-default-rtdb.firebaseio.com",
+    projectId: "ysrwebads",
+    storageBucket: "ysrwebads.appspot.com",
+    messagingSenderId: "626902144268",
+    appId: "1:626902144268:web:d0fbdb08e22ce889bae529",
+    measurementId: "G-M4DFKQ5FK2"
 };
 
-// Function to get the data
-function getData() {
-  return exampleData;
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+// Function to fetch and display ad
+function loadAd() {
+    const adContainer = document.getElementById('ad-container');
+    const bannerSize = '728x90'; // Example size, modify as needed
+
+    // Fetch ad data from Firebase
+    database.ref(`bannerAds/${bannerSize}`).once('value').then(snapshot => {
+        const ads = snapshot.val();
+        if (ads) {
+            const adKey = Object.keys(ads)[0];
+            const ad = ads[adKey];
+            if (ad.status === 'active') {
+                adContainer.innerHTML = `
+                    <a href="${ad.adUrl}" target="_blank" onclick="trackClick('${adKey}')">
+                        <img src="${ad.bannerImageUrl}" alt="${ad.campaignName}" />
+                    </a>
+                `;
+            }
+        }
+    });
 }
 
-// Exporting the function if using in a module environment
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    getData
-  };
+// Function to track clicks
+function trackClick(adKey) {
+    fetch('https://ysrwebads-default-rtdb.firebaseio.com/adInteractions.json', {
+        method: 'POST',
+        body: JSON.stringify({
+            adKey: adKey,
+            action: 'click',
+            timestamp: Date.now()
+        }),
+        headers: { 'Content-Type': 'application/json' }
+    });
+
+    // Also, update click count in Firebase
+    const adRef = database.ref(`bannerAds/728x90/${adKey}`);
+    adRef.transaction(ad => {
+        if (ad) {
+            ad.clicks = (ad.clicks || 0) + 1;
+        }
+        return ad;
+    });
 }
+
+// Load ad on page load
+window.onload = loadAd;
